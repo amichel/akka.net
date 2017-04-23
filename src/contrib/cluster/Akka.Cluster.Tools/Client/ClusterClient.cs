@@ -10,6 +10,8 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Akka.Actor;
+using Akka.Actor.Internal;
+using Akka.Cluster.Tools.PublishSubscribe;
 using Akka.Event;
 using Akka.Remote;
 using Akka.Util.Internal;
@@ -127,6 +129,41 @@ namespace Akka.Cluster.Tools.Client
         /// TBD
         /// </summary>
         [Serializable]
+        public sealed class SetUnhandledMessagesMediator
+        {
+            public IActorRef ActorRef { get; }
+            public SetUnhandledMessagesMediator(IActorRef actorRef)
+            {
+                ActorRef = actorRef;
+            }
+        }
+
+        /// <summary> 
+        /// </summary>
+        [Serializable]
+        public sealed class Subscribe
+        {
+            public string Topic { get; }
+            public string Group { get; }
+
+            public Subscribe(string topic, string group = null)
+            {
+                Topic = topic;
+                Group = group;
+            }
+        }
+
+        [Serializable]
+        public sealed class Unsubscribe
+        {
+            public Subscribe Subscribe { get; }
+            public Unsubscribe(Subscribe subscribe)
+            {
+                Subscribe = subscribe;
+            }
+        }
+
+        [Serializable]
         internal sealed class RefreshContactsTick
         {
             /// <summary>
@@ -189,6 +226,7 @@ namespace Akka.Cluster.Tools.Client
         private readonly ICancelable _heartbeatTask;
         private ICancelable _refreshContactsCancelable;
         private readonly Queue<Tuple<object, IActorRef>> _buffer;
+        private IActorRef _unhandledMessagesMediator = ActorRefs.Nobody;
 
         /// <summary>
         /// TBD
@@ -337,6 +375,26 @@ namespace Akka.Cluster.Tools.Client
                 var publish = (Publish)message;
                 Buffer(new PublishSubscribe.Publish(publish.Topic, publish.Message));
             }
+            else if (message is SetUnhandledMessagesMediator)
+            {
+                var mediator = (SetUnhandledMessagesMediator)message;
+                SetAndWatchUnhandledMessagesMediator(mediator);
+            }
+            else if (message is Terminated)
+            {
+                var terminated = (Terminated)message;
+                OnTerminated(terminated);
+            }
+            else if (message is Subscribe)
+            {
+                var subscribe = (Subscribe)message;
+                Buffer(new PublishSubscribe.Subscribe(subscribe.Topic, Self, subscribe.Group), Self);
+            }
+            else if (message is Unsubscribe)
+            {
+                var unsubscribe = (Unsubscribe)message;
+                Buffer(new PublishSubscribe.Unsubscribe(unsubscribe.Subscribe.Topic, Self, unsubscribe.Subscribe.Group), Self);
+            }
             else if (message is ReconnectTimeout)
             {
                 _log.Warning("Receptionist reconnect not successful within {0} stopping cluster client", _settings.ReconnectTimeout);
@@ -368,6 +426,36 @@ namespace Akka.Cluster.Tools.Client
                 {
                     var publish = (Publish)message;
                     receptionist.Forward(new PublishSubscribe.Publish(publish.Topic, publish.Message));
+                }
+                else if (message is SetUnhandledMessagesMediator)
+                {
+                    var mediator = (SetUnhandledMessagesMediator)message;
+                    SetAndWatchUnhandledMessagesMediator(mediator);
+                }
+                else if (message is Terminated)
+                {
+                    var terminated = (Terminated)message;
+                    OnTerminated(terminated);
+                }
+                else if (message is Subscribe)
+                {
+                    var subscribe = (Subscribe)message;
+                    receptionist.Tell(new PublishSubscribe.Subscribe(subscribe.Topic, Self, subscribe.Group));
+                }
+                else if (message is Unsubscribe)
+                {
+                    var unsubscribe = (Unsubscribe)message;
+                    receptionist.Tell(new PublishSubscribe.Unsubscribe(unsubscribe.Subscribe.Topic, Self, unsubscribe.Subscribe.Group));
+                }
+                else if (message is SubscribeAck)
+                {
+                    var ack = (SubscribeAck)message;
+                    _log.Debug(ack.ToString());
+                }
+                else if (message is UnsubscribeAck)
+                {
+                    var ack = (UnsubscribeAck)message;
+                    _log.Debug(ack.ToString());
                 }
                 else if (message is HeartbeatTick)
                 {
@@ -410,7 +498,7 @@ namespace Akka.Cluster.Tools.Client
                 }
                 else
                 {
-                    return ContactPointMessages(message);
+                    return ContactPointMessages(message) || TryForwardUnhandledMessage(message);
                 }
 
                 return true;
@@ -461,7 +549,7 @@ namespace Akka.Cluster.Tools.Client
             sendTo.ForEach(c => c.Tell(ClusterReceptionist.GetContacts.Instance));
         }
 
-        private void Buffer(object message)
+        private void Buffer(object message, IActorRef sender = null)
         {
             if (_settings.BufferSize == 0)
             {
@@ -471,12 +559,12 @@ namespace Akka.Cluster.Tools.Client
             {
                 var m = _buffer.Dequeue();
                 _log.Debug("Receptionist not available, buffer is full, dropping first message [{0}]", m.Item1.GetType().Name);
-                _buffer.Enqueue(Tuple.Create(message, Sender));
+                _buffer.Enqueue(Tuple.Create(message, sender ?? Sender));
             }
             else
             {
                 _log.Debug("Receptionist not available, buffering message type [{0}]", message.GetType().Name);
-                _buffer.Enqueue(Tuple.Create(message, Sender));
+                _buffer.Enqueue(Tuple.Create(message, sender ?? Sender));
             }
         }
 
@@ -511,6 +599,32 @@ namespace Akka.Cluster.Tools.Client
             }
 
             _contactPathsPublished = _contactPaths;
+        }
+
+        private void SetAndWatchUnhandledMessagesMediator(SetUnhandledMessagesMediator mediator)
+        {
+            if (!_unhandledMessagesMediator.IsNobody())
+                Context.Unwatch(_unhandledMessagesMediator);
+
+            _unhandledMessagesMediator = mediator.ActorRef;
+            if (!_unhandledMessagesMediator.IsNobody())
+                Context.Watch(_unhandledMessagesMediator);
+        }
+
+        private void OnTerminated(Terminated terminated)
+        {
+            if (terminated.ActorRef.Equals(_unhandledMessagesMediator))
+                _unhandledMessagesMediator = ActorRefs.Nobody;
+            //TODO: do I need to supervise it fully and try to restart or recreate by using factory, or leave it for whoever created it?
+        }
+
+        private bool TryForwardUnhandledMessage(object message)
+        {
+            if (_unhandledMessagesMediator.IsNobody())
+                return false;
+
+            _unhandledMessagesMediator.Tell(message);
+            return true;
         }
     }
 
