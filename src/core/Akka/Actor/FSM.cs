@@ -58,6 +58,7 @@ namespace Akka.Actor
                 return Equals(FsmRef, other.FsmRef) && EqualityComparer<TS>.Default.Equals(State, other.State);
             }
 
+            /// <inheritdoc/>
             public override bool Equals(object obj)
             {
                 if (ReferenceEquals(null, obj)) return false;
@@ -65,6 +66,7 @@ namespace Akka.Actor
                 return obj is CurrentState<TS> && Equals((CurrentState<TS>)obj);
             }
 
+            /// <inheritdoc/>
             public override int GetHashCode()
             {
                 unchecked
@@ -73,6 +75,7 @@ namespace Akka.Actor
                 }
             }
 
+            /// <inheritdoc/>
             public override string ToString()
             {
                 return $"CurrentState <{State}>";
@@ -121,6 +124,7 @@ namespace Akka.Actor
                 return Equals(FsmRef, other.FsmRef) && EqualityComparer<TS>.Default.Equals(From, other.From) && EqualityComparer<TS>.Default.Equals(To, other.To);
             }
 
+            /// <inheritdoc/>
             public override bool Equals(object obj)
             {
                 if (ReferenceEquals(null, obj)) return false;
@@ -128,6 +132,7 @@ namespace Akka.Actor
                 return obj is Transition<TS> && Equals((Transition<TS>)obj);
             }
 
+            /// <inheritdoc/>
             public override int GetHashCode()
             {
                 unchecked
@@ -139,10 +144,7 @@ namespace Akka.Actor
                 }
             }
 
-            /// <summary>
-            /// TBD
-            /// </summary>
-            /// <returns>TBD</returns>
+            /// <inheritdoc/>
             public override string ToString()
             {
                 return $"Transition({From}, {To})";
@@ -204,6 +206,9 @@ namespace Akka.Actor
         /// </summary>
         public sealed class Normal : Reason
         {
+            /// <summary>
+            /// Obsolete. Use <see cref="Normal.Instance"/> instead.
+            /// </summary>
             [Obsolete("This constructor is obsoleted. Use Normal.Instance [1.2.0]")]
             public Normal() { }
 
@@ -221,6 +226,9 @@ namespace Akka.Actor
         /// </summary>
         public sealed class Shutdown : Reason
         {
+            /// <summary>
+            /// Obsolete. Use <see cref="Shutdown.Instance"/> instead.
+            /// </summary>
             [Obsolete("This constructor is obsoleted. Use Shutdown.Instance [1.2.0]")]
             public Shutdown() { }
 
@@ -253,6 +261,7 @@ namespace Akka.Actor
             /// </summary>
             public object Cause { get; }
 
+            /// <inheritdoc/>
             public override string ToString() => $"Failure({Cause})";
         }
 
@@ -261,7 +270,10 @@ namespace Akka.Actor
         /// </summary>
         public sealed class StateTimeout
         {
-            [Obsolete("This constructor is obsoleted. Use Shutdown.Instance [1.2.0]")]
+            /// <summary>
+            /// Obsolete. Use <see cref="StateTimeout.Instance"/> instead.
+            /// </summary>
+            [Obsolete("This constructor is obsoleted. Use StateTimeout.Instance [1.2.0]")]
             public StateTimeout() { }
 
             /// <summary>
@@ -405,10 +417,7 @@ namespace Akka.Actor
             /// </summary>
             public object FsmEvent { get; }
 
-            /// <summary>
-            /// TBD
-            /// </summary>
-            /// <returns>TBD</returns>
+            /// <inheritdoc/>
             public override string ToString()
             {
                 return $"StateName: <{StateName}>, StateData: <{StateData}>, FsmEvent: <{FsmEvent}>";
@@ -432,6 +441,7 @@ namespace Akka.Actor
             /// <param name="timeout">TBD</param>
             /// <param name="stopReason">TBD</param>
             /// <param name="replies">TBD</param>
+            /// <param name="notifies">TBD</param>
             public State(TS stateName, TD stateData, TimeSpan? timeout = null, Reason stopReason = null, IReadOnlyList<object> replies = null, bool notifies = true)
             {
                 Replies = replies ?? new List<object>();
@@ -541,20 +551,13 @@ namespace Akka.Actor
                 return new State<TS, TD>(StateName, StateData, Timeout, StopReason, Replies, notifies);
             }
 
-            /// <summary>
-            /// TBD
-            /// </summary>
-            /// <returns>TBD</returns>
+            /// <inheritdoc/>
             public override string ToString()
             {
                 return $"{StateName}, {StateData}";
             }
 
-            /// <summary>
-            /// TBD
-            /// </summary>
-            /// <param name="other">TBD</param>
-            /// <returns>TBD</returns>
+            /// <inheritdoc/>
             public bool Equals(State<TS, TD> other)
             {
                 if (ReferenceEquals(null, other)) return false;
@@ -562,11 +565,7 @@ namespace Akka.Actor
                 return EqualityComparer<TS>.Default.Equals(StateName, other.StateName) && EqualityComparer<TD>.Default.Equals(StateData, other.StateData) && Timeout.Equals(other.Timeout) && Equals(StopReason, other.StopReason) && Equals(Replies, other.Replies);
             }
 
-            /// <summary>
-            /// TBD
-            /// </summary>
-            /// <param name="obj">TBD</param>
-            /// <returns>TBD</returns>
+            /// <inheritdoc/>
             public override bool Equals(object obj)
             {
                 if (ReferenceEquals(null, obj)) return false;
@@ -575,10 +574,7 @@ namespace Akka.Actor
                 return Equals((State<TS, TD>)obj);
             }
 
-            /// <summary>
-            /// TBD
-            /// </summary>
-            /// <returns>TBD</returns>
+            /// <inheritdoc/>
             public override int GetHashCode()
             {
                 unchecked
@@ -621,10 +617,7 @@ namespace Akka.Actor
             /// </summary>
             public TD StateData { get; }
 
-            /// <summary>
-            /// TBD
-            /// </summary>
-            /// <returns>TBD</returns>
+            /// <inheritdoc/>
             public override string ToString()
             {
                 return $"Event: <{FsmEvent}>, StateData: <{StateData}>";
@@ -666,10 +659,7 @@ namespace Akka.Actor
             /// </summary>
             public TD StateData { get; }
 
-            /// <summary>
-            /// TBD
-            /// </summary>
-            /// <returns>TBD</returns>
+            /// <inheritdoc/>
             public override string ToString()
             {
                 return $"Reason: <{Reason}>, TerminatedState: <{TerminatedState}>, StateData: <{StateData}>";
@@ -750,6 +740,12 @@ namespace Akka.Actor
             return new State<TState, TData>(nextStateName, _currentState.StateData);
         }
 
+        /// <summary>
+        /// Obsolete. Use <c>GoTo(nextStateName).Using(stateData) instead.</c>
+        /// </summary>
+        /// <param name="nextStateName">N/A</param>
+        /// <param name="stateData">N/A</param>
+        /// <returns>N/A</returns>
         [Obsolete("This method is obsoleted. Use GoTo(nextStateName).Using(newStateData) [1.2.0]")]
         public State<TState, TData> GoTo(TState nextStateName, TData stateData)
         {
@@ -846,15 +842,12 @@ namespace Akka.Actor
         public void SetTimer(string name, object msg, TimeSpan timeout, bool repeat = false)
         {
             if (DebugEvent)
-            {
                 _log.Debug($"setting {(repeat ? "repeating" : "")} timer {name}/{timeout}: {msg}");
-            }
-            if (_timers.ContainsKey(name))
-            { 
-                _timers[name].Cancel();
-            }
 
-            var timer = new Timer(name, msg, repeat, _timerGen.Next(), Context);
+            if (_timers.TryGetValue(name, out var timer))
+                timer.Cancel();
+
+            timer = new Timer(name, msg, repeat, _timerGen.Next(), Context);
             timer.Schedule(Self, timeout);
             _timers[name] = timer;
         }
@@ -866,13 +859,11 @@ namespace Akka.Actor
         public void CancelTimer(string name)
         {
             if (DebugEvent)
-            {
                 _log.Debug($"Cancelling timer {name}");
-            }
 
-            if (_timers.ContainsKey(name))
+            if (_timers.TryGetValue(name, out var timer))
             {
-                _timers[name].Cancel();
+                timer.Cancel();
                 _timers.Remove(name);
             }
         }
@@ -937,6 +928,9 @@ namespace Akka.Actor
         /// last call within the constructor or <see cref="ActorBase.PreStart"/> and
         /// <see cref="ActorBase.PostRestart"/>.
         /// </summary>
+        /// <exception cref="IllegalStateException">
+        /// This exception is thrown when this method is called before <see cref="StartWith"/> is called.
+        /// </exception>
         public void Initialize()
         {
             if (_currentState != null)
@@ -1030,9 +1024,9 @@ namespace Akka.Actor
 
         private void Register(TState name, StateFunction function, TimeSpan? timeout)
         {
-            if (_stateFunctions.ContainsKey(name))
+            if (_stateFunctions.TryGetValue(name, out var stateFunction))
             {
-                _stateFunctions[name] = OrElse(_stateFunctions[name], function);
+                _stateFunctions[name] = OrElse(stateFunction, function);
                 _stateTimeouts[name] = _stateTimeouts[name] ?? timeout;
             }
             else
@@ -1124,7 +1118,7 @@ namespace Akka.Actor
             var timer = message as Timer;
             if (timer != null)
             {
-                if (_timers.ContainsKey(timer.Name) && _timers[timer.Name].Generation == timer.Generation)
+                if (_timers.TryGetValue(timer.Name, out var oldTimer) && oldTimer.Generation == timer.Generation)
                 {
                     if (_timeoutFuture != null)
                     {

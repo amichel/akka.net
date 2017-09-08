@@ -1,13 +1,19 @@
 - name: Introduction
   items:
-  - name: What is Akka?
+  - name: What is Akka.NET?
     href: intro/what-is-akka.md
-  - name: Why Akka?
-    href: intro/why-akka.md
-  - name: Getting Started
-    href: intro/getting-started.md
-  - name: The Obligatory Hello World
-    href: intro/the-obligatory-hello-world.md
+  - name: What are actors?
+    href: intro/what-are-actors.md
+  - name: Akka.NET Libraries and Modules
+    href: intro/modules.md
+  - name: Part 1. Top-level Architecture
+    href: intro/tutorial-1.md
+  - name: Part 2. The Device Actor
+    href: intro/tutorial-2.md
+  - name: Part 3. Device Groups and Manager
+    href: intro/tutorial-3.md
+  - name: Part 4. Querying a Group of Devices
+    href: intro/tutorial-4.md
   - name: Use-case and Deployment Scenarios
     href: intro/use-case-and-deployment-scenarios.md
   - name: Production Users and Use Cases for Akka.NET
@@ -58,8 +64,8 @@
   items: 
   - name: Architecture
     href: persistence/architecture.md
-  - name: Persistence Actors
-    href: persistence/persistent-actors.md
+  - name: Event sourcing
+    href: persistence/event-sourcing.md
   - name: Persistence Views
     href: persistence/persistent-views.md
   - name: Snapshots
@@ -95,7 +101,7 @@
   - name: Buffers and working with rate
     href: streams/buffersandworkingwithrate.md
   - name: Custom stream processing
-    href: streams/customstreamprocessing.md
+    href: streams/custom-stream-processing.md
   - name: Integration
     href: streams/integration.md
   - name: Error Handling

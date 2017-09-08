@@ -43,7 +43,7 @@ namespace Akka.DistributedData.Tests.MultiNode
         public IEnumerable<int> MyData => _data[Myself];
 
         public JepsenInspiredInsertSpec() : this(new JepsenInspiredInsertSpecConfig()) { }
-        protected JepsenInspiredInsertSpec(JepsenInspiredInsertSpecConfig config) : base(config)
+        protected JepsenInspiredInsertSpec(JepsenInspiredInsertSpecConfig config) : base(config, typeof(JepsenInspiredInsertSpec))
         {
             _cluster = Akka.Cluster.Cluster.Get(Sys);
             _replicator = DistributedData.Get(Sys).Replicator;
@@ -255,7 +255,7 @@ namespace Akka.DistributedData.Tests.MultiNode
 
                 RunOn(() =>
                 {
-                    // without delays all could teoretically have been written before the blackhole
+                    // without delays all could theoretically have been written before the blackhole
                     if (_delayMillis != 0)
                         failureWriteAcks.Should().NotBeEmpty();
                 }, N2, N3);

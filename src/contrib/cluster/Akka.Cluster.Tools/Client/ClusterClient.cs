@@ -205,7 +205,9 @@ namespace Akka.Cluster.Tools.Client
         /// Factory method for <see cref="ClusterClient"/> <see cref="Actor.Props"/>.
         /// </summary>
         /// <param name="settings">TBD</param>
-        /// <exception cref="ArgumentNullException">TBD</exception>
+        /// <exception cref="ArgumentNullException">
+        /// This exception is thrown when the specified <paramref name="settings"/> is undefined.
+        /// </exception>
         /// <returns>TBD</returns>
         public static Props Props(ClusterClientSettings settings)
         {
@@ -229,11 +231,12 @@ namespace Akka.Cluster.Tools.Client
         private IActorRef _unhandledMessagesMediator = ActorRefs.Nobody;
 
         /// <summary>
-        /// TBD
+        /// Initializes a new instance of the <see cref="ClusterClient" /> class.
         /// </summary>
-        /// <param name="settings">TBD</param>
-        /// <exception cref="ArgumentException">TBD</exception>
-        /// <returns>TBD</returns>
+        /// <param name="settings">The settings used to configure the client.</param>
+        /// <exception cref="ArgumentException">
+        /// This exception is thrown when the settings contains no initial contacts.
+        /// </exception>
         public ClusterClient(ClusterClientSettings settings)
         {
             if (settings.InitialContacts.Count == 0)

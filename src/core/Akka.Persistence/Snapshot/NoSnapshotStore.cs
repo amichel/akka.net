@@ -49,6 +49,7 @@ namespace Akka.Persistence.Snapshot
             {
             }
 
+#if SERIALIZATION
             /// <summary>
             /// Initializes a new instance of the <see cref="NoSnapshotStoreException"/> class.
             /// </summary>
@@ -57,6 +58,7 @@ namespace Akka.Persistence.Snapshot
             protected NoSnapshotStoreException(SerializationInfo info, StreamingContext context) : base(info, context)
             {
             }
+#endif
         }
 
         /// <summary>
@@ -75,7 +77,9 @@ namespace Akka.Persistence.Snapshot
         /// </summary>
         /// <param name="metadata">TBD</param>
         /// <param name="snapshot">TBD</param>
-        /// <exception cref="NoSnapshotStoreException">TBD</exception>
+        /// <exception cref="NoSnapshotStoreException">
+        /// This exception is thrown when no snapshot store is configured.
+        /// </exception>
         /// <returns>TBD</returns>
         protected override Task SaveAsync(SnapshotMetadata metadata, object snapshot)
         {
@@ -86,7 +90,9 @@ namespace Akka.Persistence.Snapshot
         /// TBD
         /// </summary>
         /// <param name="metadata">TBD</param>
-        /// <exception cref="NoSnapshotStoreException">TBD</exception>
+        /// <exception cref="NoSnapshotStoreException">
+        /// This exception is thrown when no snapshot store is configured.
+        /// </exception>
         /// <returns>TBD</returns>
         protected override Task DeleteAsync(SnapshotMetadata metadata)
         {
@@ -98,7 +104,9 @@ namespace Akka.Persistence.Snapshot
         /// </summary>
         /// <param name="persistenceId">TBD</param>
         /// <param name="criteria">TBD</param>
-        /// <exception cref="NoSnapshotStoreException">TBD</exception>
+        /// <exception cref="NoSnapshotStoreException">
+        /// This exception is thrown when no snapshot store is configured.
+        /// </exception>
         /// <returns>TBD</returns>
         protected override Task DeleteAsync(string persistenceId, SnapshotSelectionCriteria criteria)
         {

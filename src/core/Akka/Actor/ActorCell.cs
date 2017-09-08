@@ -12,6 +12,7 @@ using Akka.Actor.Internal;
 using Akka.Dispatch;
 using Akka.Dispatch.SysMsg;
 using Akka.Event;
+using System.Reflection;
 using Akka.Serialization;
 using Akka.Util;
 using Assert = System.Diagnostics.Debug;
@@ -21,7 +22,7 @@ namespace Akka.Actor
     /// <summary>
     /// TBD
     /// </summary>
-    public partial class ActorCell : IUntypedActorContext, ICell 
+    public partial class ActorCell : IUntypedActorContext, ICell
     {
         /// <summary>NOTE! Only constructor and ClearActorFields is allowed to update this</summary>
         private IInternalActorRef _self;
@@ -78,7 +79,7 @@ namespace Akka.Actor
             _systemImpl = system;
             Parent = parent;
             Dispatcher = dispatcher;
-            
+
         }
 
         /// <summary>
@@ -226,10 +227,10 @@ namespace Akka.Actor
         }
 
         /// <summary>
-        /// TBD
+        /// Obsolete. Use <see cref="TryGetChildStatsByName(string, out IChildStats)"/> instead.
         /// </summary>
-        /// <param name="name">TBD</param>
-        /// <returns>TBD</returns>
+        /// <param name="name">N/A</param>
+        /// <returns>N/A</returns>
         [Obsolete("Use TryGetChildStatsByName [0.7.1]", true)]
         public IInternalActorRef GetChildByName(string name)   //TODO: Should return  Option[ChildStats]
         {
@@ -526,6 +527,8 @@ namespace Akka.Actor
             if (!(unwrapped is INoSerializationVerificationNeeded))
             {
                 var deserializedMsg = SerializeAndDeserializePayload(unwrapped);
+                if(deadLetter != null)
+                    return new Envelope(new DeadLetter(deserializedMsg, deadLetter.Sender, deadLetter.Recipient), envelope.Sender);
                 return new Envelope(deserializedMsg, envelope.Sender);
             }
 

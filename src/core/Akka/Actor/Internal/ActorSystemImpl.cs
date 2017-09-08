@@ -15,17 +15,23 @@ using Akka.Configuration;
 using Akka.Dispatch;
 using Akka.Dispatch.SysMsg;
 using Akka.Event;
+using System.Reflection;
 using Akka.Serialization;
 using Akka.Util;
 
 
 namespace Akka.Actor.Internal
 {
+    internal interface ISupportSerializationConfigReload
+    {
+        void ReloadSerialization();
+    }
+
     /// <summary>
     /// TBD
     /// <remarks>Note! Part of internal API. Breaking changes may occur without notice. Use at own risk.</remarks>
     /// </summary>
-    public class ActorSystemImpl : ExtendedActorSystem
+    public class ActorSystemImpl : ExtendedActorSystem, ISupportSerializationConfigReload
     {
         private IActorRef _logDeadLetterListener;
         private readonly ConcurrentDictionary<Type, Lazy<object>> _extensions = new ConcurrentDictionary<Type, Lazy<object>>();
@@ -43,9 +49,9 @@ namespace Akka.Actor.Internal
         private TerminationCallbacks _terminationCallbacks;
 
         /// <summary>
-        /// TBD
+        /// Initializes a new instance of the <see cref="ActorSystemImpl"/> class.
         /// </summary>
-        /// <param name="name">TBD</param>
+        /// <param name="name">The name given to the actor system.</param>
         public ActorSystemImpl(string name)
             : this(name, ConfigurationFactory.Load())
         {
@@ -65,7 +71,7 @@ namespace Akka.Actor.Internal
         {
             if(!Regex.Match(name, "^[a-zA-Z0-9][a-zA-Z0-9-]*$").Success)
                 throw new ArgumentException(
-                    $"Invalid ActorSystem name [{name}], must contain only word characters (i.e. [a-zA-Z0-9] plus non-leading '-')");
+                    $"Invalid ActorSystem name [{name}], must contain only word characters (i.e. [a-zA-Z0-9] plus non-leading '-')", nameof(name));
             if(config == null)
                 throw new ArgumentNullException(nameof(config), "Configuration must not be null.");
 
@@ -230,32 +236,19 @@ namespace Akka.Actor.Internal
             }
         }
 
-        /// <summary>
-        /// TBD
-        /// </summary>
-        /// <param name="props">TBD</param>
-        /// <param name="name">TBD</param>
-        /// <returns>TBD</returns>
+        /// <inheritdoc/>
         public override IActorRef ActorOf(Props props, string name = null)
         {
             return _provider.Guardian.Cell.AttachChild(props, false, name);
         }
 
-        /// <summary>
-        /// TBD
-        /// </summary>
-        /// <param name="actorPath">TBD</param>
-        /// <returns>TBD</returns>
+        /// <inheritdoc/>
         public override ActorSelection ActorSelection(ActorPath actorPath)
         {
             return ActorRefFactoryShared.ActorSelection(actorPath, this);
         }
 
-        /// <summary>
-        /// TBD
-        /// </summary>
-        /// <param name="actorPath">TBD</param>
-        /// <returns>TBD</returns>
+        /// <inheritdoc/>
         public override ActorSelection ActorSelection(string actorPath)
         {
             return ActorRefFactoryShared.ActorSelection(actorPath, this, _provider.RootGuardian);
@@ -279,7 +272,7 @@ namespace Akka.Actor.Internal
             foreach(var extensionFqn in _settings.Config.GetStringList("akka.extensions"))
             {
                 var extensionType = Type.GetType(extensionFqn);
-                if(extensionType == null || !typeof(IExtensionId).IsAssignableFrom(extensionType) || extensionType.IsAbstract || !extensionType.IsClass)
+                if(extensionType == null || !typeof(IExtensionId).IsAssignableFrom(extensionType) || extensionType.GetTypeInfo().IsAbstract || !extensionType.GetTypeInfo().IsClass)
                 {
                     _log.Error("[{0}] is not an 'ExtensionId', skipping...", extensionFqn);
                     continue;
@@ -342,8 +335,7 @@ namespace Akka.Actor.Internal
         /// <returns><c>true</c> if the retrieval was successful; otherwise <c>false</c>.</returns>
         public override bool TryGetExtension(Type extensionType, out object extension)
         {
-            Lazy<object> lazyExtension;
-            var wasFound = _extensions.TryGetValue(extensionType, out lazyExtension);
+            var wasFound = _extensions.TryGetValue(extensionType, out var lazyExtension);
             extension = wasFound ? lazyExtension.Value : null;
             return wasFound;
         }
@@ -356,17 +348,16 @@ namespace Akka.Actor.Internal
         /// <returns><c>true</c> if the retrieval was successful; otherwise <c>false</c>.</returns>
         public override bool TryGetExtension<T>(out T extension)
         {
-            Lazy<object> lazyExtension;
-            var wasFound = _extensions.TryGetValue(typeof(T), out lazyExtension);
+            var wasFound = _extensions.TryGetValue(typeof(T), out var lazyExtension);
             extension = wasFound ? lazyExtension.Value as T : null;
             return wasFound;
         }
 
         /// <summary>
-        /// TBD
+        /// Retrieves an extension with the specified type that is registered to this actor system.
         /// </summary>
-        /// <typeparam name="T">TBD</typeparam>
-        /// <returns>TBD</returns>
+        /// <typeparam name="T">The type of extension to retrieve</typeparam>
+        /// <returns>The specified extension registered to this actor system</returns>
         public override T GetExtension<T>()
         {
             T extension;
@@ -412,6 +403,11 @@ namespace Akka.Actor.Internal
         private void ConfigureSerialization()
         {
             _serialization = new Serialization.Serialization(this);
+        }
+
+        void ISupportSerializationConfigReload.ReloadSerialization() {
+            if(_serialization != null)
+                ConfigureSerialization();
         }
 
         private void ConfigureMailboxes()

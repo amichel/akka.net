@@ -8,9 +8,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using System.Collections.ObjectModel;
 using System.Linq;
-using Akka.Actor.Dsl;
 using Akka.Util;
 using Newtonsoft.Json;
 using static System.String;
@@ -35,29 +33,30 @@ namespace Akka.Actor
     public abstract class ActorPath : IEquatable<ActorPath>, IComparable<ActorPath>, ISurrogated
     {
         /// <summary>
-        /// TBD
+        /// This class represents a surrogate of an <see cref="ActorPath"/>.
+        /// Its main use is to help during the serialization process.
         /// </summary>
         public class Surrogate : ISurrogate, IEquatable<Surrogate>, IEquatable<ActorPath>
         {
             /// <summary>
-            /// TBD
+            /// Initializes a new instance of the <see cref="Surrogate"/> class.
             /// </summary>
-            /// <param name="path">TBD</param>
+            /// <param name="path">The string representation of the actor path.</param>
             public Surrogate(string path)
             {
                 Path = path;
             }
 
             /// <summary>
-            /// TBD
+            /// The string representation of the actor path
             /// </summary>
             public string Path { get; }
 
             /// <summary>
-            /// TBD
+            /// Creates an <see cref="ActorPath"/> encapsulated by this surrogate.
             /// </summary>
-            /// <param name="system">TBD</param>
-            /// <returns>TBD</returns>
+            /// <param name="system">The actor system that contains this actor path.</param>
+            /// <returns>The <see cref="ActorPath"/> encapsulated by this surrogate.</returns>
             public ISurrogated FromSurrogate(ActorSystem system)
             {
                 ActorPath path;
@@ -71,11 +70,7 @@ namespace Akka.Actor
 
             #region Equality
 
-            /// <summary>
-            /// TBD
-            /// </summary>
-            /// <param name="other">TBD</param>
-            /// <returns>TBD</returns>
+            /// <inheritdoc/>
             public bool Equals(Surrogate other)
             {
                 if (ReferenceEquals(null, other)) return false;
@@ -83,22 +78,14 @@ namespace Akka.Actor
                 return string.Equals(Path, other.Path);
             }
 
-            /// <summary>
-            /// TBD
-            /// </summary>
-            /// <param name="other">TBD</param>
-            /// <returns>TBD</returns>
+            /// <inheritdoc/>
             public bool Equals(ActorPath other)
             {
                 if (other == null) return false;
                 return Equals(other.ToSurrogate(null)); //TODO: not so sure if this is OK
             }
 
-            /// <summary>
-            /// TBD
-            /// </summary>
-            /// <param name="obj">TBD</param>
-            /// <returns>TBD</returns>
+            /// <inheritdoc/>
             public override bool Equals(object obj)
             {
                 if (ReferenceEquals(null, obj)) return false;
@@ -108,10 +95,7 @@ namespace Akka.Actor
                 return Equals(obj as Surrogate);
             }
 
-            /// <summary>
-            /// TBD
-            /// </summary>
-            /// <returns>TBD</returns>
+            /// <inheritdoc/>
             public override int GetHashCode()
             {
                 return Path.GetHashCode();
@@ -142,8 +126,11 @@ namespace Akka.Actor
             return !s.StartsWith("$") && Validate(s.ToCharArray(), s.Length);
         }
 
-        private static bool IsValidChar(char c) => (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || ValidSymbols.Contains(c);
-        private static bool IsHexChar(char c) => (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') || (c >= '0' && c <= '9');
+        private static bool IsValidChar(char c) => (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                                                   (c >= '0' && c <= '9') || ValidSymbols.Contains(c);
+
+        private static bool IsHexChar(char c) => (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') ||
+                                                 (c >= '0' && c <= '9');
 
         private static bool Validate(IReadOnlyList<char> chars, int len)
         {
@@ -166,9 +153,6 @@ namespace Akka.Actor
             return true;
         }
 
-        private static readonly Func<ActorPath, IList<string>> FillElementsFunc =
-            actorPath => FillElements(actorPath);
-
         /// <summary>
         /// Initializes a new instance of the <see cref="ActorPath" /> class.
         /// </summary>
@@ -178,7 +162,6 @@ namespace Akka.Actor
         {
             Name = name;
             Address = address;
-            _elements = new FastLazy<ActorPath, IList<string>>(FillElementsFunc, this);
         }
 
         /// <summary>
@@ -192,7 +175,6 @@ namespace Akka.Actor
             Address = parentPath.Address;
             Uid = uid;
             Name = name;
-            _elements = new FastLazy<ActorPath, IList<string>>(FillElementsFunc, this);
         }
 
         /// <summary>
@@ -200,75 +182,16 @@ namespace Akka.Actor
         /// </summary>
         /// <value> The uid. </value>
         public long Uid { get; }
-        
-        private readonly FastLazy<ActorPath, IList<string>> _elements;
 
-        private static readonly string[] _emptyElements = { };
-        private static readonly string[] _systemElements = { "system" };
-        private static readonly string[] _userElements = { "user" };
-
-        /// <summary>
-        /// This method pursuits optimization goals mostly in terms of allocations.
-        /// We're computing elements chain only once and storing it in <see cref="_elements" />.
-        /// Computed chain meant to be reused not only by calls to <see cref="Elements" /> 
-        /// but also during chain computation of children actors.
-        /// </summary>
-        /// <param name="actorPath"></param>
-        /// <returns></returns>
-        private static IList<string> FillElements(ActorPath actorPath)
-        {
-            // fast path next three `if`
-            if(actorPath is RootActorPath)
-                return _emptyElements;
-            if (actorPath.Parent is RootActorPath)
-            {
-                if (actorPath.Name.Equals("system", StringComparison.Ordinal))
-                    return _systemElements;
-                if (actorPath.Name.Equals("user", StringComparison.Ordinal))
-                    return _userElements;
-                return new [] {actorPath.Name};
-            }
-            // if our direct parent has computed chain we can skip list (for intermediate results) creation and resizing
-            if (actorPath.Parent._elements.IsValueCreated)
-            {
-                var parentElems = actorPath.Parent._elements.Value;
-                var myElems = new string[parentElems.Count + 1];
-                parentElems.CopyTo(myElems, 0);
-                myElems[myElems.Length - 1] = actorPath.Name;
-                return myElems;
-            }
-
-            // walking from `this` instance upto root actor
-            var current = actorPath;
-            var elements = new List<string>();
-            while (!(current is RootActorPath))
-            {
-                // there may be already computed elements chain for some of our parents, so reuse it!
-                if (current._elements.IsValueCreated)
-                {
-                    var parentElems = current._elements.Value;
-                    var myElems = new string[parentElems.Count + elements.Count];
-                    parentElems.CopyTo(myElems, 0);
-                    // parent's chain already in order, we need to reverse values collected so far
-                    for (int i = elements.Count - 1; i >= 0; i--)
-                    {
-                        myElems[parentElems.Count + (elements.Count - 1 - i)] = elements[i];
-                    }
-                    return myElems;
-                }
-                elements.Add(current.Name);
-                current = current.Parent;
-            }
-            // none of our parents have computed chain (no calls to Elements issued)
-            elements.Reverse();
-            return elements;
-        }
+        internal static readonly string[] EmptyElements = { };
+        internal static readonly string[] SystemElements = { "system" };
+        internal static readonly string[] UserElements = { "user" };
 
         /// <summary>
         /// Gets the elements.
         /// </summary>
         /// <value> The elements. </value>
-        public IReadOnlyList<string> Elements => new ReadOnlyCollection<string>(_elements.Value);
+        public abstract IReadOnlyList<string> Elements { get; }
 
         /// <summary>
         /// INTERNAL API.
@@ -282,12 +205,10 @@ namespace Akka.Actor
         {
             get
             {
-                if(this is RootActorPath) return new []{""};
-                var elements = _elements.Value;
-                var elementsWithUid = new string[elements.Count];
-                elements.CopyTo(elementsWithUid, 0);
-                elementsWithUid[elementsWithUid.Length - 1] = AppendUidFragment(Name);
-                return elementsWithUid;
+                if (this is RootActorPath) return EmptyElements;
+                var elements = (List<string>)Elements;
+                elements[elements.Count - 1] = AppendUidFragment(Name);
+                return elements;
             }
         }
 
@@ -305,19 +226,16 @@ namespace Akka.Actor
         public Address Address { get; }
 
         /// <summary>
-        /// TBD
+        /// The root actor path.
         /// </summary>
         public abstract ActorPath Root { get; }
+
         /// <summary>
-        /// TBD
+        /// The path of the parent to this actor.
         /// </summary>
         public abstract ActorPath Parent { get; }
 
-        /// <summary>
-        /// Indicates whether the current object is equal to another object of the same type.
-        /// </summary>
-        /// <param name="other"> An object to compare with this object. </param>
-        /// <returns> true if the current object is equal to the <paramref name="other" /> parameter; otherwise, false. </returns>
+        /// <inheritdoc/>
         public bool Equals(ActorPath other)
         {
             if (other == null)
@@ -326,11 +244,7 @@ namespace Akka.Actor
             return Address.Equals(other.Address) && Elements.SequenceEqual(other.Elements);
         }
 
-        /// <summary>
-        /// TBD
-        /// </summary>
-        /// <param name="other">TBD</param>
-        /// <returns>TBD</returns>
+        /// <inheritdoc/>
         public abstract int CompareTo(ActorPath other);
 
         /// <summary>
@@ -341,11 +255,12 @@ namespace Akka.Actor
         public abstract ActorPath WithUid(long uid);
 
         /// <summary>
-        /// Create a new child actor path.
+        /// Creates a new <see cref="ChildActorPath"/> with the specified parent <paramref name="path"/>
+        /// and the specified <paramref name="name"/>.
         /// </summary>
-        /// <param name="path"> The path. </param>
-        /// <param name="name"> The name. </param>
-        /// <returns> The result of the operator. </returns>
+        /// <param name="path">The parent path of the newly created actor path</param>
+        /// <param name="name">The name of child actor path</param>
+        /// <returns>A newly created <see cref="ChildActorPath"/></returns>
         public static ActorPath operator /(ActorPath path, string name)
         {
             var nameAndUid = ActorCell.SplitNameAndUid(name);
@@ -353,11 +268,12 @@ namespace Akka.Actor
         }
 
         /// <summary>
-        /// Recursively create a descendant’s path by appending all child names.
+        /// Creates a new <see cref="ActorPath"/> by appending all the names in <paramref name="name"/>
+        /// to the specified <paramref name="path"/>.
         /// </summary>
-        /// <param name="path"> The path. </param>
-        /// <param name="name"> The name. </param>
-        /// <returns> The result of the operator. </returns>
+        /// <param name="path">The base path of the newly created actor path.</param>
+        /// <param name="name">The names being appended to the specified <paramref name="path"/>.</param>
+        /// <returns>A newly created <see cref="ActorPath"/></returns>
         public static ActorPath operator /(ActorPath path, IEnumerable<string> name)
         {
             var a = path;
@@ -370,13 +286,13 @@ namespace Akka.Actor
         }
 
         /// <summary>
-        /// TBD
+        /// Creates an <see cref="ActorPath"/> from the specified <paramref name="path"/>.
         /// </summary>
-        /// <param name="path">TBD</param>
+        /// <param name="path">The string representing a possible <see cref="ActorPath"/></param>
         /// <exception cref="UriFormatException">
         /// This exception is thrown if the given <paramref name="path"/> cannot be parsed into an <see cref="ActorPath"/>.
         /// </exception>
-        /// <returns>TBD</returns>
+        /// <returns>A newly created <see cref="ActorPath"/></returns>
         public static ActorPath Parse(string path)
         {
             ActorPath actorPath;
@@ -490,10 +406,7 @@ namespace Akka.Actor
             return Join();
         }
 
-        /// <summary>
-        /// Returns a <see cref="System.String" /> that represents this instance.
-        /// </summary>
-        /// <returns> A <see cref="System.String" /> that represents this instance. </returns>
+        /// <inheritdoc/>
         public override string ToString()
         {
             return ToStringWithAddress();
@@ -521,23 +434,20 @@ namespace Akka.Actor
             return this / childName;
         }
 
-        /// <summary>
-        /// Returns a hash code for this instance.
-        /// </summary>
-        /// <returns> A hash code for this instance, suitable for use in hashing algorithms and data structures like a hash table. </returns>
+        /// <inheritdoc/>
         public override int GetHashCode()
         {
-            return ToString().GetHashCode();
+            unchecked
+            {
+                var hash = 17;
+                hash = (hash * 23) ^ Address.GetHashCode();
+                foreach (var e in Elements)
+                    hash = (hash * 23) ^ e.GetHashCode();
+                return hash;
+            }
         }
 
-        /// <summary>
-        /// Determines whether the specified <see cref="System.Object" /> is equal to this instance.
-        /// </summary>
-        /// <param name="obj"> The object to compare with the current object. </param>
-        /// <returns>
-        /// <c> true </c> if the specified <see cref="System.Object" /> is equal to this instance; otherwise,
-        /// <c> false </c>.
-        /// </returns>
+        /// <inheritdoc/>
         public override bool Equals(object obj)
         {
             var other = obj as ActorPath;
@@ -603,6 +513,7 @@ namespace Akka.Actor
 
             return String.Concat(withAddress, "#", Uid.ToString());
         }
+
         /// <summary>
         /// Generate String representation, replacing the Address in the RootActorPath
         /// with the given one unless this path’s address includes host and port
@@ -629,10 +540,10 @@ namespace Akka.Actor
         }
 
         /// <summary>
-        /// TBD
+        /// Creates a surrogate representation of the current <see cref="ActorPath"/>.
         /// </summary>
-        /// <param name="system">TBD</param>
-        /// <returns>TBD</returns>
+        /// <param name="system">The actor system that references this actor path.</param>
+        /// <returns>The surrogate representation of the current <see cref="ActorPath"/>.</returns>
         public ISurrogate ToSurrogate(ActorSystem system)
         {
             return new Surrogate(ToSerializationFormat());
@@ -640,7 +551,7 @@ namespace Akka.Actor
     }
 
     /// <summary>
-    /// Class RootActorPath.
+    /// Actor paths for root guardians, such as "/user" and "/system"
     /// </summary>
     public class RootActorPath : ActorPath
     {
@@ -654,23 +565,16 @@ namespace Akka.Actor
         {
         }
 
-        /// <summary>
-        /// TBD
-        /// </summary>
+        /// <inheritdoc/>
         public override ActorPath Parent => null;
 
-        /// <summary>
-        /// TBD
-        /// </summary>
+        public override IReadOnlyList<string> Elements => EmptyElements;
+
+        /// <inheritdoc/>
         [JsonIgnore]
         public override ActorPath Root => this;
 
-        /// <summary>
-        /// TBD
-        /// </summary>
-        /// <param name="uid">TBD</param>
-        /// <exception cref="NotSupportedException">This exception is thrown if the given <paramref name="uid"/> is not equal to 0.</exception>
-        /// <returns>TBD</returns>
+        /// <inheritdoc/>
         public override ActorPath WithUid(long uid)
         {
             if (uid == 0)
@@ -678,11 +582,7 @@ namespace Akka.Actor
             throw new NotSupportedException("RootActorPath must have undefined Uid");
         }
 
-        /// <summary>
-        /// TBD
-        /// </summary>
-        /// <param name="other">TBD</param>
-        /// <returns>TBD</returns>
+        /// <inheritdoc/>
         public override int CompareTo(ActorPath other)
         {
             if (other is ChildActorPath) return 1;
@@ -691,7 +591,7 @@ namespace Akka.Actor
     }
 
     /// <summary>
-    /// Class ChildActorPath.
+    /// Actor paths for child actors, which is to say any non-guardian actor.
     /// </summary>
     public class ChildActorPath : ActorPath
     {
@@ -711,14 +611,26 @@ namespace Akka.Actor
             _parent = parentPath;
         }
 
-        /// <summary>
-        /// TBD
-        /// </summary>
+        /// <inheritdoc/>
         public override ActorPath Parent => _parent;
 
-        /// <summary>
-        /// TBD
-        /// </summary>
+        public override IReadOnlyList<string> Elements
+        {
+            get
+            {
+                ActorPath p = this;
+                var acc = new Stack<string>();
+                while (true)
+                {
+                    if (p is RootActorPath)
+                        return acc.ToList();
+                    acc.Push(p.Name);
+                    p = p.Parent;
+                }
+            }
+        }
+
+        /// <inheritdoc/>
         public override ActorPath Root
         {
             get
@@ -744,11 +656,7 @@ namespace Akka.Actor
             return new ChildActorPath(_parent, _name, uid);
         }
 
-        /// <summary>
-        /// TBD
-        /// </summary>
-        /// <param name="other">TBD</param>
-        /// <returns>TBD</returns>
+        /// <inheritdoc/>
         public override int CompareTo(ActorPath other)
         {
             return InternalCompareTo(this, other);
